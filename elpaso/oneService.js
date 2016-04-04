@@ -1,8 +1,20 @@
 define([
     "dojo/_base/declare",
-    "dijit/_Widget",
-  "dijit/_Templated"
-], function(declare, _Widget,_Templated){
+     'dojo/_base/lang',
+     'dojo/dom-construct',
+     'dijit/_Widget',
+     'dijit/_Templated',
+     'dijit/registry',
+     'esri/geometry/webMercatorUtils'
+], function(
+    declare, 
+    lang,
+    domConstruct,
+    _Widget,
+    _Templated,
+    registry,
+    webMercatorUtils
+    ){
     return declare("oneService", [_Widget, _Templated], {
         templateString: '<div><input data-dojo-attach-point="checkNode" data-dojo-attach-event="onclick:_onClick" name="viewtype" value="${svcvalue}" checked="" type="checkbox" /><span data-dojo-attach-point="labelNode"></span></div>',
         constructor: function (a) {
@@ -11,7 +23,7 @@ define([
             this.vimgwg = a.vimgwg;
             this.map = this.vimgwg.map;
             this.viewobject = this.vimgwg.config.viewobject;
-            dojo.mixin(this, a)
+            lang.mixin(this, a)
         },
         postCreate: function () {
 
@@ -61,7 +73,7 @@ define([
 
                 if (cgraphic != null) {
                     var viewvalue = this.checkNode.value;
-                    var geom = esri.geometry.webMercatorToGeographic(cgraphic.geometry);
+                    var geom = webMercatorUtils.webMercatorToGeographic(cgraphic.geometry);
                     var lat = geom.y;
                     var lon = geom.x;
                     var pcount = 0;
@@ -80,14 +92,14 @@ define([
                 var o = viewobject[viewvalue].order;
                 this.vimgwg.vieworder["view" + o] = false;
                 this.vimgwg._restorePane(panid, viewvalue);
-                if (dijit.byId(panid)) dijit.byId(panid).hide();
+                if (registry.byId(panid)) registry.byId(panid).hide();
 
             }
 
         },
 
         destroy: function () {
-            dojo.empty(this.domNode);
+            domConstruct.empty(this.domNode);
             this.inherited(arguments);
         }
         

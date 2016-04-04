@@ -1,39 +1,71 @@
 
 define(['dojo/_base/declare', 
-    'jimu/BaseWidget',
+    'jimu/BaseWidget',    
+    'dojo/_base/lang',
+    'dojo/_base/window',
+    'dojo/string',
+    'dojo/on',
+    'dojo/dom',    
+    'dojo/dom-construct' ,  
+    'dojo/_base/Color',  
+    'dojo/query',
+    'dijit/registry',
     'dojox/layout/FloatingPane',
-    'dojo/_base/lang','dojo/on',
-    'dojo/dom-construct' ,
+    './configLocal',
     './oneService',
-    'esri/request'   
+    'esri/request',
+    'esri/SpatialReference',
+    'esri/geometry/Point',
+    'esri/geometry/webMercatorUtils',
+    'esri/layers/GraphicsLayer',
+    'esri/symbols/SimpleMarkerSymbol',
+    'esri/symbols/SimpleLineSymbol',
+    'esri/renderers/SimpleRenderer',
+    'esri/graphic'
     ],
-function(declare, BaseWidget,FloatingPane,lang,on,domConstruct,_oneService,esriRequest) {
+function(
+    declare, 
+    BaseWidget,    
+    lang,
+    win,
+    string,
+    on,
+    dom,    
+    domConstruct,
+    Color,
+    query,
+    registry,
+    FloatingPane,
+    _configLocal,
+    _oneService,
+    esriRequest,
+    SpatialReference,
+    Point,
+    webMercatorUtils,
+    GraphicsLayer,
+    SimpleMarkerSymbol,
+    SimpleLineSymbol,
+    SimpleRenderer,
+    Graphic
+    ) {
   //To create a widget, you need to derive from BaseWidget.
   return declare([BaseWidget], {
     // Custom widget code goes here 
-
- 
     baseClass: 'jimu-widget-elpaso',
-    
     //this property is set by the framework when widget is loaded.
-     name: 'elpaso',
-
-
-//methods to communication with app container:
-
-     postCreate: function() {
+    name: 'elpaso',
+    //methods to communication with app container:
+    postCreate: function() {
 	//add logo
 	this.imageNode.src = this.folderUrl + "images/elpaso_logo.png";
+   //add layer
 
-
-
-//add layer
 if (this.map.getLayer("imageLayer_" + this.id)) {
             this.imageLayer = this.map.getLayer("imageLayer_" + this.id);
         } else {
-            this.imageLayer = new esri.layers.GraphicsLayer({ id: "imageLayer_" + this.id });
-            var symbol = new esri.symbol.SimpleMarkerSymbol(esri.symbol.SimpleMarkerSymbol.STYLE_CROSS, 14, new esri.symbol.SimpleLineSymbol(esri.symbol.SimpleLineSymbol.STYLE_SOLID, new dojo.Color([255, 0, 255]), 2), new dojo.Color([255, 0, 255, 1.0]));
-            var rd = new esri.renderer.SimpleRenderer(symbol);
+            this.imageLayer = new GraphicsLayer({ id: "imageLayer_" + this.id });
+            var symbol = new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_CROSS, 14, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([255, 0, 255]), 2), new Color([255, 0, 255, 1.0]));
+            var rd = new SimpleRenderer(symbol);
             rd.label = "Click Point";
             this.imageLayer.setRenderer(rd);
             this.map.addLayer(this.imageLayer);
@@ -41,16 +73,8 @@ if (this.map.getLayer("imageLayer_" + this.id)) {
 
 
      var wobj = this;
-//add local config, local config used to hide config settings from widget setup UI.
-    var layersRequest = esriRequest({
-    url: wobj.folderUrl + "configLocal.json",
-    content: { f: "json" },
-    handleAs: "json",
-    callbackParamName: "callback"
-  });
-  layersRequest.then(
-    function(response) {     
-      wobj.config = response;
+     //add local config, local config used to hide config settings from widget setup UI.
+     wobj.config = _configLocal;
      
 
         //add widget id to each entry so unique across all widget instances and overwrite default config
@@ -67,14 +91,8 @@ if (this.map.getLayer("imageLayer_" + this.id)) {
           var robj = viewobject[eview];
           var sNode = new _oneService({ id: eview, svcobj: robj, vimgwg: wobj });
           sNode.placeAt(wobj.chkboxNode);
-
         }       
-
-  }, function(error) {     
-      alert("Error reading configuration");
-  }); 	
-
-     },
+   },
 
    startup: function() {
 
@@ -125,17 +143,19 @@ _tboxpress: function (event) {
             }
  },
 _searchGeo: function () {
-        var svalue = this.get("geoTextNode").value;
-            svalue = dojo.trim(svalue);
+
+            var svalue = this.get("geoTextNode").value;       
+            svalue = string.trim(svalue);        
+
             var llPattern = /^-?\d{1,2}(\.\d+|),\s?-?\d{1,3}(\.\d+|)$/g;
 
             if (llPattern.test(svalue)) {
                 svalue = svalue.replace(/\s/g, "");
-                var inputSR = new esri.SpatialReference({ wkid: 4326 });
+                var inputSR = new SpatialReference({ wkid: 4326 });
                 var lat = svalue.split(",")[0];
                 var lon = svalue.split(",")[1];
-                var pntgeom = new esri.geometry.Point(parseFloat(lon), parseFloat(lat), inputSR);
-                var mgeom = esri.geometry.geographicToWebMercator(pntgeom);
+                var pntgeom = new Point(parseFloat(lon), parseFloat(lat), inputSR);
+                var mgeom = webMercatorUtils.geographicToWebMercator(pntgeom);
                 this.map.centerAndZoom(mgeom, 14);
                 this.showview(pntgeom);
             } else {
@@ -146,13 +166,13 @@ _searchGeo: function () {
      clickMap: function (e) {
             var clickpnt = e.mapPoint;
             var spoint = e.screenPoint;
-            var geopnt = esri.geometry.webMercatorToGeographic(clickpnt);
+            var geopnt = webMercatorUtils.webMercatorToGeographic(clickpnt);
             this.showview(geopnt);
         },
     showview: function (gpnt) {
         	var viewobject = this.config.viewobject;
             this.imageLayer.clear();
-            var mgeom = esri.geometry.geographicToWebMercator(gpnt);
+            var mgeom = webMercatorUtils.geographicToWebMercator(gpnt);
             var lat = gpnt.y.toFixed(6);
             var lon = gpnt.x.toFixed(6);
             var pointstr = "Point of interest: " + lat + ", " + lon;
@@ -173,7 +193,7 @@ _searchGeo: function () {
             }
             if (showpin) {
 
-                var graphic = new esri.Graphic(mgeom);
+                var graphic = new Graphic(mgeom);
                 this.imageLayer.add(graphic);
                 this.currentgraphic = graphic;
             } else {
@@ -181,6 +201,8 @@ _searchGeo: function () {
             }
         },
         popupview: function (pname, lat, lon, cid, pindex) {
+
+
             
             var viewobject = this.config.viewobject;
             this.vieworder["view" + pindex] = true;
@@ -204,12 +226,13 @@ _searchGeo: function () {
             viewobject[pname].left = leftx;
             viewobject[pname].top = topy;
             var paneid = "popupdiv" + cid + "_" + this.id;
-            if (dojo.byId(paneid)) {
-                dijit.byId(paneid).show();
-                dojo.byId(paneid).style.left = leftx + "px";
-                dojo.byId(paneid).style.top = topy + "px";
-
-                document.getElementById('popframe' + cid + "_" + this.id).src = popurl;
+            if (dom.byId(paneid)) {
+               
+                registry.byId(paneid).show();
+                dom.byId(paneid).style.left = leftx + "px";
+                dom.byId(paneid).style.top = topy + "px";
+                
+                dom.byId('popframe' + cid + "_" + this.id).src = popurl;
 
             } else {
                 var vtitle = viewobject[pname].desc;
@@ -217,12 +240,9 @@ _searchGeo: function () {
                 var fwidth = viewobject[pname].width;
                 var fheight = viewobject[pname].height;
                 var zIndex = 200 + order;
-
-                var div = document.createElement("div");
-                div.id = paneid;
-
-
-                document.body.appendChild(div);
+         
+             
+                domConstruct.create("div", { id: paneid }, win.body());
 
                 var stylestr = "position: absolute; padding:0; left: " + leftx + "px; top: " + topy + "px; visibility:visible; width: " + fwidth + "px; background-color: White; height: " + fheight + "px; z-index: " + zIndex + ";";
 
@@ -234,13 +254,13 @@ _searchGeo: function () {
                     dockable: false,
                     id: paneid,
                     style: stylestr
-                }, dojo.byId(paneid));
+                }, dom.byId(paneid));
                 tmp.startup();
 	
          
 
                 var qtitlestr = '#' + paneid + ' .dojoxFloatingPaneTitle';
-                var titlePane = dojo.query(qtitlestr)[0];
+                var titlePane = query(qtitlestr)[0];
                 //add close button to title pane
                 var closeDiv = domConstruct.create("div", {
                     className: "closeClass",
@@ -251,7 +271,7 @@ _searchGeo: function () {
 
 
                 var qcontentstr = '#' + paneid + ' .dojoxFloatingPaneContent';
-                var qcontentPane = dojo.query(qcontentstr)[0];
+                var qcontentPane = query(qcontentstr)[0];
                 var paneDiv = domConstruct.create("iframe", {
                     id: "popframe" + cid + "_" + this.id,
                     width: "100%",
@@ -279,7 +299,7 @@ _searchGeo: function () {
             var o = viewobject[viewvalue].order;
             this.vieworder["view" + o] = false;
             this._restorePane(panid, viewvalue);
-            dijit.byId(panid).hide();
+            registry.byId(panid).hide();
             var showPoint = false;
             for (var j = 1; j < 5; j++) {
                 if (this.vieworder["view" + j] == true) {
@@ -296,15 +316,15 @@ _searchGeo: function () {
         },
 _restorePane: function (paneid, eview) {
             var viewobject = this.config.viewobject;
-            if (dojo.byId(paneid)) {
+            if (dom.byId(paneid)) {
                 var leftx = viewobject[eview].left;
                 var topy = viewobject[eview].top;
                 var fwidth = viewobject[eview].width;
                 var fheight = viewobject[eview].height;
-                dojo.byId(paneid).style.top = topy + "px";
-                dojo.byId(paneid).style.left = leftx + "px";
-                dojo.byId(paneid).style.width = fwidth + "px";
-                dojo.byId(paneid).style.height = fheight + "px";
+                dom.byId(paneid).style.top = topy + "px";
+                dom.byId(paneid).style.left = leftx + "px";
+                dom.byId(paneid).style.width = fwidth + "px";
+                dom.byId(paneid).style.height = fheight + "px";
 
             }
         },
@@ -331,15 +351,15 @@ _restorePane: function (paneid, eview) {
              for (var eview in viewobject) {
                 var cid = viewobject[eview].pid;
                 var paneid = "popupdiv" + cid + "_" + this.id;
-                if (dojo.byId(paneid)) {
+                if (dom.byId(paneid)) {
                     var leftx = viewobject[eview].left;
                     var topy = viewobject[eview].top;
                     var fwidth = viewobject[eview].width;
                     var fheight = viewobject[eview].height;
-                    dojo.byId(paneid).style.top = topy + "px";
-                    dojo.byId(paneid).style.left = leftx + "px";
-                    dojo.byId(paneid).style.width = fwidth + "px";
-                    dojo.byId(paneid).style.height = fheight + "px";
+                    dom.byId(paneid).style.top = topy + "px";
+                    dom.byId(paneid).style.left = leftx + "px";
+                    dom.byId(paneid).style.width = fwidth + "px";
+                    dom.byId(paneid).style.height = fheight + "px";
 
                 }
             }
@@ -353,7 +373,7 @@ _restorePane: function (paneid, eview) {
          var frm = this.viewform;
         for (var k = 0; k < frm.viewtype.length; k++) {
             var paneid = "popupdiv" + k + "_" + this.id;
-            if (dojo.byId(paneid)) dijit.byId(paneid).hide();
+            if (dom.byId(paneid)) registry.byId(paneid).hide();
             frm.viewtype[k].checked = false;
 
         }

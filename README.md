@@ -1,6 +1,10 @@
 # elpaso-widget-js (OEI)
 
 ## Updates
+April 4, 2016
+Updated widget for HTTPS compatibility and latest WAB version.
+Replaced Google Earth viewer with ESRI 3D viewer due to Google Earth plugin deprecation.
+
 March 3, 2015
 Updated the Bing Maps imagery metadata module to handle XSS
 
